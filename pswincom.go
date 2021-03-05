@@ -22,6 +22,7 @@ type Client struct {
 	client *http.Client
 }
 
+// Credential manages credentials
 type Credential struct {
 	Username string
 	Password string
@@ -43,15 +44,32 @@ func NewClient(username, password, sender string, httpClient *http.Client) *Clie
 	return c
 }
 
+// EncodeBody creates a 'application/x-www-form-urlencoded' string
+func (c Client) EncodeBody(message *Message) (string, error) {
+
+	b := url.Values{}
+	b.Set("USER", c.Credential.Username)
+	b.Set("PW", c.Credential.Password)
+	b.Set("SND", c.Sender)
+	b.Set("RCV", message.Recipient)
+	b.Set("TXT", message.Body)
+
+	if message.Replace {
+		b.Set("REPLACE", "1")
+	}
+
+	return url.QueryUnescape(b.Encode())
+}
+
 // SendMessage handles sending text messages
 func (c *Client) SendMessage(message *Message) error {
 
-	requestBody := fmt.Sprintf("USER=%s&PW=%s&SND=%s&RCV=%s&TXT=%s", c.Credential.Username, c.Credential.Password, c.Sender, message.Recipient, message.Body)
-	if message.Replace {
-		requestBody = requestBody + "REPLACE=1"
+	rb, err := c.EncodeBody(message)
+	if err != nil {
+		return fmt.Errorf("Could not encode body: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", c.BaseURL.String(), strings.NewReader(requestBody))
+	req, err := http.NewRequest("POST", c.BaseURL.String(), strings.NewReader(rb))
 	if err != nil {
 		return fmt.Errorf("Could not setup request: %v", err)
 	}
