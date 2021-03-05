@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Message manages the message content
 type Message struct {
 	Recipient string
 	Body      string
