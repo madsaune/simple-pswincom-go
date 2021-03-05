@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -40,6 +41,26 @@ func NewClient(username, password, sender string, httpClient *http.Client) *Clie
 	baseURL, _ := url.Parse(defaultBaseURL)
 	credential := Credential{username, password}
 	c := &Client{client: httpClient, UserAgent: userAgent, BaseURL: baseURL, Sender: sender, Credential: credential}
+
+	return c
+}
+
+func NewClientFromEnv(httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+
+	baseURL, _ := url.Parse(defaultBaseURL)
+	credential := Credential{os.Getenv("PSWINCOM_USER"), os.Getenv("PSWINCOM_PASSWD")}
+	sender := os.Getenv("PSWINCOM_SENDER")
+
+	c := &Client{
+		client:     httpClient,
+		UserAgent:  userAgent,
+		BaseURL:    baseURL,
+		Sender:     sender,
+		Credential: credential,
+	}
 
 	return c
 }
