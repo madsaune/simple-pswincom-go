@@ -2,97 +2,72 @@ package pswincom
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
-const baseURL = "https://simple.pswin.com"
+const (
+	defaultBaseURL = "https://simple.pswin.com"
+	userAgent      = "simple-pswincom-go"
+)
 
+// A Client manages communication with the PSWincom Simple API.
 type Client struct {
-	Username   string
-	Password   string
-	SenderName string
+	BaseURL    *url.URL
+	UserAgent  string
+	Sender     string
+	Credential Credential
+
+	client *http.Client
 }
 
-func NewClient(username, password, senderName string) *Client {
-	return &Client{
-		Username:   username,
-		Password:   password,
-		SenderName: senderName,
-	}
+type Credential struct {
+	Username string
+	Password string
 }
 
-type Message struct {
-	Body       string
-	Message    string
-	To         string
-	URL        string
-	Replace    bool
-	Status     string
-	StatusCode int
+// NewClient returns a new PSWincom Simple API client. If a nil httpClient is
+// provided, a new http.Client will be used. To use API methods which require
+// authentication, provide an http.Client that will perform the authentication
+// for you (such as that provided by the golang.org/x/oauth2 library).
+func NewClient(username, password, sender string, httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+
+	baseURL, _ := url.Parse(defaultBaseURL)
+	credential := Credential{username, password}
+	c := &Client{client: httpClient, UserAgent: userAgent, BaseURL: baseURL, Sender: sender, Credential: credential}
+
+	return c
 }
 
-func parseNumber(number string) string {
-	if strings.Index(number, "+") == 0 {
-		return string(number[1:])
+// SendMessage handles sending text messages
+func (c *Client) SendMessage(message *Message) error {
+
+	requestBody := fmt.Sprintf("USER=%s&PW=%s&SND=%s&RCV=%s&TXT=%s", c.Credential.Username, c.Credential.Password, c.Sender, message.Recipient, message.Body)
+	if message.Replace {
+		requestBody = requestBody + "REPLACE=1"
 	}
 
-	if strings.Index(number, "00") == 0 {
-		return string(number[2:])
-	}
-
-	if len(number) == 8 {
-		return fmt.Sprintf("47%s", number)
-	}
-
-	return number
-}
-
-func (c *Client) SendMessage(recipient, message string, replace bool) (*Message, error) {
-	httpClient := &http.Client{}
-
-	// requestBody := url.Values{}
-	// requestBody.Set("USER", c.Username)
-	// requestBody.Set("PW", c.Password)
-	// requestBody.Set("SND", c.SenderName)
-	// requestBody.Set("RCV", parseNumber(recipient))
-	// requestBody.Set("TXT", message)
-
-	// if replace {
-	// 	requestBody.Set("REPLACE", "1")
-	// }
-
-	// strings.NewReader(requestBody.Encode())
-
-	requestBody := fmt.Sprintf("USER=%s&PW=%s&SND=%s&RCV=%s&TXT=%s", c.Username, c.Password, c.SenderName, parseNumber(recipient), message)
-
-	req, err := http.NewRequest("POST", baseURL, strings.NewReader(requestBody))
+	req, err := http.NewRequest("POST", c.BaseURL.String(), strings.NewReader(requestBody))
 	if err != nil {
-		return nil, fmt.Errorf("Could not setup request: %v", err)
+		return fmt.Errorf("Could not setup request: %v", err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := httpClient.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Could not execute request: %v", err)
+		return fmt.Errorf("Could not execute request: %v", err)
 	}
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Could not convert body to bytes: %v", err)
+	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return fmt.Errorf("Status Code indicates failure: %d (%s)", resp.StatusCode, resp.Status)
 	}
 
-	return &Message{
-		Body:       string(body),
-		Message:    message,
-		To:         parseNumber(recipient),
-		URL:        baseURL,
-		Replace:    replace,
-		Status:     resp.Status,
-		StatusCode: resp.StatusCode,
-	}, nil
+	return nil
 }
