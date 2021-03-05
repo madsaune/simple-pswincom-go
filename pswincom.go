@@ -45,6 +45,11 @@ func NewClient(username, password, sender string, httpClient *http.Client) *Clie
 	return c
 }
 
+// NewClientFromEnv returns a new PSWincom Simple API client with credentials
+// fetched from environment variables. If a nil httpClient is provided, a
+// new http.Client will be used. To use API methods which require authentication,
+// provide an http.Client that will perform the authentication for you
+// (such as that provided by the golang.org/x/oauth2 library).
 func NewClientFromEnv(httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{}
