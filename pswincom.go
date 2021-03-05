@@ -56,7 +56,7 @@ func NewClientFromEnv(httpClient *http.Client) *Client {
 	}
 
 	baseURL, _ := url.Parse(defaultBaseURL)
-	credential := Credential{os.Getenv("PSWINCOM_USER"), os.Getenv("PSWINCOM_PASSWD")}
+	credential := Credential{os.Getenv("PSWINCOM_USER"), os.Getenv("PSWINCOM_PASSWORD")}
 	sender := os.Getenv("PSWINCOM_SENDER")
 
 	c := &Client{
